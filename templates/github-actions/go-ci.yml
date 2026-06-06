@@ -1,0 +1,87 @@
+name: Go CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@0c52d547c9bc32b1c3d6f5b0bfc4d5c4f8b26b3a # v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@3cfe3a4abbb849e10058ce4af15d205b6da42804 # v4
+        with:
+          version: latest
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@0c52d547c9bc32b1c3d6f5b0bfc4d5c4f8b26b3a # v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4
+        with:
+          name: coverage-report
+          path: coverage.out
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint, test]
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@0c52d547c9bc32b1c3d6f5b0bfc4d5c4f8b26b3a # v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build -o bin/myapp-${{ matrix.goos }}-${{ matrix.goarch }} .
+
+      - name: Upload binary
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4
+        with:
+          name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/
+          retention-days: 7

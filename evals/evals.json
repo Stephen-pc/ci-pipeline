@@ -1,0 +1,89 @@
+[
+  {
+    "id": "node-basic-ci",
+    "name": "Node.js basic CI workflow",
+    "prompt": "Generate a GitHub Actions CI workflow for my Node.js project",
+    "context": {
+      "files": ["package.json", "package-lock.json"],
+      "package_json_scripts": { "test": "jest", "lint": "eslint ." }
+    },
+    "expected": {
+      "platform": "github",
+      "workflow": "ci",
+      "language": "node",
+      "includes_caching": true,
+      "includes_lint": true,
+      "includes_test": true,
+      "uses_matrix": true,
+      "has_permissions": true
+    }
+  },
+  {
+    "id": "python-pytest",
+    "name": "Python project with pytest",
+    "prompt": "Set up CI/CD for my Python FastAPI project",
+    "context": {
+      "files": ["requirements.txt", "pyproject.toml"],
+      "framework": "fastapi",
+      "test_runner": "pytest"
+    },
+    "expected": {
+      "platform": "github",
+      "workflow": "ci",
+      "language": "python",
+      "includes_lint": true,
+      "includes_test": true,
+      "includes_mypy": true,
+      "uses_matrix": true
+    }
+  },
+  {
+    "id": "go-cross-platform",
+    "name": "Go cross-platform build",
+    "prompt": "Create a GitLab CI pipeline for my Go service",
+    "context": {
+      "files": ["go.mod", "go.sum"],
+      "go_version": "1.22"
+    },
+    "expected": {
+      "platform": "gitlab",
+      "workflow": "ci",
+      "language": "go",
+      "includes_lint": true,
+      "includes_test": true,
+      "includes_build": true,
+      "cross_platform": true
+    }
+  },
+  {
+    "id": "docker-deploy",
+    "name": "Docker deploy workflow",
+    "prompt": "Generate a deploy workflow for my Dockerized app",
+    "context": {
+      "files": ["Dockerfile", "docker-compose.yml", "package.json"],
+      "registry": "ghcr.io"
+    },
+    "expected": {
+      "platform": "github",
+      "workflow": "deploy",
+      "builds_docker": true,
+      "pushes_to_registry": true,
+      "has_staging": true,
+      "has_production": true
+    }
+  },
+  {
+    "id": "monorepo-paths",
+    "name": "Monorepo with path filtering",
+    "prompt": "Set up CI for my monorepo — only run tests when api/ changes",
+    "context": {
+      "files": ["packages/api/package.json", "packages/web/package.json"],
+      "monorepo": true
+    },
+    "expected": {
+      "platform": "github",
+      "uses_path_filter": true,
+      "selective_testing": true
+    }
+  }
+]
