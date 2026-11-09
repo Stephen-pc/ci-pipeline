@@ -1,0 +1,93 @@
+name: CI
+
+# 这个仓库的产出就是 CI 配置，自己却没有 CI —— 模板里的错误只能等用户
+# 复制过去之后在别人仓库里报红。这里把它自己的模板当成被测对象。
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate-templates:
+    name: 校验全部模板
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # 校验器依赖 PyYAML 判断语法；缺了会退化成「跳过」而不是「通过」，
+      # 那这条 CI 就失去意义了，所以显式装上。
+      - name: 安装 PyYAML
+        run: python -m pip install --quiet pyyaml
+
+      # 每个模板都必须通过（允许 warning，不允许 error）。
+      # 平台识别也要断言：GitLab 模板被判成 github 是最容易悄悄发生的回归。
+      - name: 逐个校验模板
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in templates/github-actions/*.yml; do
+            echo "::group::$f"
+            bash scripts/validate-config.sh "$f" || fail=1
+            echo "::endgroup::"
+          done
+          for f in templates/gitlab-ci/*.yml; do
+            echo "::group::$f"
+            out=$(bash scripts/validate-config.sh "$f") || fail=1
+            echo "$out"
+            if ! grep -q "Detected platform: gitlab" <<<"$out"; then
+              echo "::error file=$f::平台识别错误，GitLab 模板没有被判成 gitlab"
+              fail=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $fail
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # scripts/validate-config.sh 里踩过一个经典坑：
+      # log_warn 用 ((WARNINGS++))，而算术表达式的退出码是「自增前的值」，
+      # 当 WARNINGS 为 0 时返回 1，配合 set -e 会让脚本在第一条警告处静默退出。
+      # 表现是「exit 1 + 0 errors + 没有 Summary」，很难从输出上看出来。
+      # error 级阻断，warning 级只提示：存量脚本没有按 shellcheck 的
+      # 口径整理过，一上来就全量阻断会让这条 CI 从第一天起就是红的，
+      # 久而久之没人再看它。先立住「真正的错误必须拦」这条线。
+      - name: 静态检查
+        run: |
+          shellcheck --severity=error scripts/validate-config.sh
+          shellcheck --severity=warning scripts/validate-config.sh \
+            || echo "::warning::shellcheck 在 warning 级别有问题（存量代码，暂不阻断）"
+
+  evals:
+    name: eval 用例结构
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: evals.json 可解析且字段完整
+        run: |
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          p = Path("evals/evals.json")
+          if not p.is_file():
+              sys.exit("缺少 evals/evals.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          cases = data if isinstance(data, list) else data.get("cases", data.get("evals", []))
+          if not cases:
+              sys.exit("evals.json 里没有任何用例")
+          bad = [c for c in cases if not (isinstance(c, dict) and c.get("name"))]
+          if bad:
+              sys.exit(f"{len(bad)} 条用例缺少 name")
+          print(f"OK：{len(cases)} 条用例，字段完整")
+          PY

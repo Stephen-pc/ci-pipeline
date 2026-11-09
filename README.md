@@ -1,5 +1,7 @@
 # ci-pipeline
 
+[![CI](https://github.com/Stephen-pc/ci-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/Stephen-pc/ci-pipeline/actions/workflows/ci.yml)
+
 A Claude Code skill that generates optimized CI/CD pipeline configurations for GitHub Actions and GitLab CI.
 
 English | [中文](README.zh-CN.md)
